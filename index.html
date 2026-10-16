@@ -51,7 +51,7 @@ details{font-size:.8rem;color:#ccc;background:#1a1a2e;border-radius:4px;padding:
    <input type="checkbox" id="lab" checked> <label class="lb" for="lab">Hiện tên bộ phận</label></div>
   <button id="bView">🔍 Xem giá đỡ &amp; trụ</button>
   <div id="zoomwrap">
-   <div class="zt"><span>Bộ đếm thời gian hiện số (1): thời gian từ lần quét thứ 1 đến lần thứ n và đồ thị góc lệch θ(t)</span></div>
+   <div class="zt"><span>Bộ đếm thời gian hiện số (1): thời điểm t₁…t₅ của các lần quét (tính từ lúc thả tay) và đồ thị góc lệch θ(t)</span></div>
    <canvas id="zoom"></canvas>
   </div>
  </div>
@@ -67,7 +67,7 @@ details{font-size:.8rem;color:#ccc;background:#1a1a2e;border-radius:4px;padding:
    Moment quán tính của hệ xác định từ chu kì: <b>I = D·T²/(4π²)</b> (19).<br>
    Đo chu kì của giá đỡ (I<sub>giá</sub>) và của hệ giá đỡ + trụ (I<sub>hệ</sub>); moment quán tính của trụ: <b>I<sub>trụ</sub> = I<sub>hệ</sub> − I<sub>giá</sub></b>.<br>
    Lý thuyết: trụ đặc <b>I = mR²/2</b>; trụ rỗng (thành mỏng) <b>I = mR²</b>.<br>
-   Bộ đếm cho thời gian từ lần quét thứ 1 đến lần thứ 5 của cờ qua cổng quang, ứng với 2 chu kì: <b>2T</b>.
+   Bộ đếm bắt đầu tính giờ từ lúc thả tay và ghi lại thời điểm t₁, t₂, …, t₅ mỗi lần cờ quét qua cổng quang (cách nhau nửa chu kì). Từ lần quét thứ 1 đến lần thứ 5 là 2 chu kì: <b>2T = t₅ − t₁</b> (không lấy trực tiếp t₅ vì t₁ ≠ 0).
   </details>
   <button id="bPlace">① Chỉ để giá đỡ (không đặt trụ)</button>
   <div class="chip" id="chipR">—</div>
@@ -77,7 +77,7 @@ details{font-size:.8rem;color:#ccc;background:#1a1a2e;border-radius:4px;padding:
    <select id="speed"><option value="1">Thời gian thực (×1)</option><option value="2" selected>Nhanh ×2</option><option value="4">Rất nhanh ×4</option></select>
   </div>
   <button id="bRel">③ Thả tay cho hệ dao động</button>
-  <div class="row"><span>2T =</span><input id="inT2" type="number" step="0.001" placeholder="đọc ở lần quét thứ 5"><span>s</span></div>
+  <div class="row"><span>2T =</span><input id="inT2" type="number" step="0.001" placeholder="2T = t₅ − t₁"><span>s</span></div>
   <div class="row"><span>T̄ =</span><input id="inTb" type="number" step="0.001" placeholder="chỉ sau đủ 3 lần đo"><span>s</span></div>
   <button id="bRec">④ Ghi kết quả vào Bảng 21</button>
   <div id="msg"></div>
@@ -269,7 +269,8 @@ $('bView').onclick=()=>{viewIdx=(viewIdx+1)%4;camGoal=viewGoal(viewIdx);$('bView
 // ---------- BỘ ĐẾM ----------
 function counterText(){
   const p=S.passes,n=p.length;
-  return{n,t:n>=1?p[n-1]-p[0]:0};}
+  return{n,t:n>=1?p[n-1]:0}; // thời gian tính từ lúc thả tay
+}
 function drawCounter3D(){
   const x=ccv.getContext('2d'),W=ccv.width,H=ccv.height,c=counterText();
   x.fillStyle='#071a10';x.fillRect(0,0,W,H);
@@ -286,8 +287,8 @@ function drawCassy(){
   cx.fillStyle='#39ff88';cx.font='bold 15px monospace';cx.fillText('Số lần quét: '+c.n,8,42);
   cx.font='bold 22px monospace';cx.fillText('t = '+c.t.toFixed(3)+' s',8,72);
   cx.font='12px monospace';cx.fillStyle='#8fd8a8';
-  for(let k=1;k<p.length&&k<=NPASS-1;k++)cx.fillText(`lần ${k+1}: ${(p[k]-p[0]).toFixed(3)} s`,8,92+(k-1)*15);
-  cx.font='11px Arial';cx.fillStyle='#8aa';cx.fillText('2T = thời gian từ lần quét 1 đến lần quét 5',8,H-8);
+  for(let k=0;k<p.length&&k<NPASS;k++)cx.fillText(`t${k+1} (lần ${k+1}): ${p[k].toFixed(3)} s`,8,92+k*15);
+  cx.font='11px Arial';cx.fillStyle='#8aa';cx.fillText('2T = t5 − t1 (gốc thời gian: lúc thả tay)',8,H-8);
   const gx0=lw+38,gy0=H/2+4,gw=W-gx0-12,gh=(H-44)/2,tm=10;
   const px=t=>gx0+t/tm*gw,py=a=>gy0-a/100*gh;
   cx.strokeStyle='#27425f';cx.lineWidth=1;cx.fillStyle='#8aa';cx.font='10px Arial';cx.textAlign='right';
@@ -347,8 +348,8 @@ function ui(){
   $('bRec').disabled=!(st==='done'||needTb);
   $('selR').disabled=$('selT').disabled=st==='running'||S.setting;
   let g;
-  if(st==='running')g='Hệ đang dao động. Bộ đếm tính thời gian từ lần cờ quét qua cổng quang thứ 1; đợi đến lần quét thứ 5...';
-  else if(st==='done')g='Đã đến lần quét thứ 5. Đọc 2T trên bộ đếm (thời gian từ lần quét thứ 1 đến lần thứ 5) và nhập vào ô 2T rồi bấm ④. Khi đủ 3 lần đo của một vật, tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 và nhập vào ô T̄.';
+  if(st==='running')g='Hệ đang dao động. Bộ đếm tính thời gian từ lúc thả tay và ghi lại thời điểm mỗi lần cờ quét qua cổng quang; đợi đến lần quét thứ 5...';
+  else if(st==='done')g='Đã đến lần quét thứ 5. Đọc t₁ và t₅ trên bộ đếm, tính 2T = t₅ − t₁ rồi nhập vào ô 2T và bấm ④. Khi đủ 3 lần đo của một vật, tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 và nhập vào ô T̄.';
   else if(st==='set')g='Hệ đang được giữ lệch khoảng 90°. Bấm ③ để thả tay.';
   else if(needTb)g='Đã đủ 3 lần đo của vật này. Tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 và nhập vào ô T̄ rồi bấm ④.';
   else if(st==='recorded')g=rowsOK()?'Đã đủ số liệu ở Bảng 21. Hãy xử lý số liệu ở mục 4.':'Đã ghi. Chọn lần đo tiếp theo hoặc vật khác ở mục 1.';
@@ -382,14 +383,15 @@ function step(h){
 function finishRun(){
   const p=S.passes,jit=0.003*Math.sin(S.si*7+S.tri*3+1);
   S.disp=Math.round((p[NPASS-1]-p[0]+jit)*1000)/1000;
+  p[NPASS-1]=p[0]+S.disp; // để t5 − t1 hiển thị đúng bằng 2T
   S.stage='done';
-  msg(`Lần quét thứ 5: bộ đếm hiển thị 2T = ${S.disp.toFixed(3)} s.`,'good');ui();}
+  msg('Đã đến lần quét thứ 5. Hãy đọc t₁, t₅ trên bộ đếm và tính 2T = t₅ − t₁.','good');ui();}
 $('bRec').onclick=()=>{
   const c=S.si,t=S.tri,r=S.rd.t2[c];
   if(S.stage==='done'){
     const v=parseFloat($('inT2').value);
-    if(isNaN(v)){msg('Hãy nhập 2T (s) đọc trên bộ đếm.','warn');return;}
-    if(Math.abs(v-S.disp)>0.0015){msg('Giá trị 2T chưa khớp với bộ đếm. 2T là thời gian từ lần quét thứ 1 đến lần quét thứ 5.','warn');return;}
+    if(isNaN(v)){msg('Hãy nhập 2T = t₅ − t₁ (s) tính từ bộ đếm.','warn');return;}
+    if(Math.abs(v-S.disp)>0.0015){msg('Giá trị 2T chưa đúng. Nhớ 2T = t₅ − t₁ (không phải t₅), vì bộ đếm tính từ lúc thả tay.','warn');return;}
     r[t]=v;S.rd.tb[c]=null;S.stage='recorded';$('inT2').value='';
   }
   if(rowFull(c)){
