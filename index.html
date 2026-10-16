@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bài 5.3.4 - Moment quán tính của trụ đặc và trụ rỗng</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#fff}
+#container{display:flex;height:100vh;width:100vw}
+#cc{flex:1;position:relative;background:radial-gradient(circle,#2a2a4a 0%,#0f0f1a 100%);min-height:380px}
+#title{position:absolute;top:12px;left:12px;z-index:10;background:rgba(0,0,0,.7);padding:8px 14px;border-radius:8px}
+#title h1{font-size:1.1rem;color:#4ecca3}#title p{font-size:.8rem;color:#aaa}
+#title label.lb{display:inline;font-size:.78rem;color:#ccc;font-weight:normal}
+#title input{width:auto;vertical-align:middle}
+#bView{position:absolute;top:12px;right:12px;z-index:10;width:auto;padding:8px 14px}
+#zoomwrap{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:min(900px,calc(100% - 20px));z-index:10;background:rgba(0,0,0,.78);border:2px solid #4ecca3;border-radius:8px;padding:6px 8px}
+#zoomwrap .zt{display:flex;justify-content:space-between;font-size:.8rem;color:#4ecca3;margin-bottom:4px;gap:8px}
+#zoom{width:100%;height:190px;display:block;border-radius:4px}
+#chart{width:100%;height:210px;display:block;border-radius:4px;border:1px solid #0f3460}
+#panel{width:400px;background:#16213e;border-left:2px solid #0f3460;padding:16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+h2{font-size:1rem;color:#e94560;border-bottom:2px solid #e94560;padding-bottom:4px;text-transform:uppercase;margin-top:6px}
+label{display:block;margin-bottom:4px;font-size:.85rem;color:#4ecca3;font-weight:bold}
+select,input,button{width:100%;padding:8px;border-radius:4px;border:1px solid transparent;background:#0f3460;color:#fff;font-size:.9rem;outline:none}
+button{background:#e94560;font-weight:bold;cursor:pointer}
+button:hover:not(:disabled){background:#ff6b81}
+button:disabled,input:disabled{opacity:.4;cursor:not-allowed}
+.ins{font-size:.8rem;line-height:1.4;color:#ccc;background:#1a1a2e;padding:8px;border-radius:4px}
+.chip{font-size:.85rem;padding:5px 8px;border-radius:4px;background:#1a1a2e;text-align:center;color:#aaa}
+.chip.on{color:#2ecc71;border:1px solid #2ecc71}
+#msg{font-size:.85rem;min-height:1.2em}
+.good{color:#2ecc71}.warn{color:#ffb142}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th,td{border:1px solid #0f3460;padding:4px;text-align:center}th{background:#1a1a2e;color:#4ecca3}
+tr.cur td{background:#1d2f57}
+td input{padding:3px;font-size:.8rem}
+.row{display:flex;align-items:center;gap:6px;margin:4px 0}.row span{white-space:nowrap;font-size:.85rem}
+.ok{border-color:#2ecc71!important;background:#14532d!important}.bad{border-color:#e94560!important;background:#5a1a2a!important}
+#calc.lock{opacity:.35;pointer-events:none}
+details{font-size:.8rem;color:#ccc;background:#1a1a2e;border-radius:4px;padding:6px 8px;margin:4px 0;line-height:1.5}
+#final{font-size:.95rem;font-weight:bold;text-align:center;padding:8px;border:1px solid #e94560;border-radius:6px;margin-top:6px;line-height:1.6}
+@media(max-width:900px){#container{flex-direction:column;height:auto}#cc{flex:none;height:78vh}#panel{width:100%}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+<div id="container">
+ <div id="cc">
+  <div id="title"><h1>THÍ NGHIỆM DAO ĐỘNG XOẮN 3D</h1><p>Bài 5.3.4: Moment quán tính của trụ đặc và trụ rỗng đồng chất</p>
+   <input type="checkbox" id="lab" checked> <label class="lb" for="lab">Hiện tên bộ phận</label></div>
+  <button id="bView">🔍 Xem giá đỡ &amp; trụ</button>
+  <div id="zoomwrap">
+   <div class="zt"><span>Bộ đếm thời gian hiện số (1): thời gian từ lần quét thứ 1 đến lần thứ n và đồ thị góc lệch θ(t)</span></div>
+   <canvas id="zoom"></canvas>
+  </div>
+ </div>
+ <div id="panel">
+  <h2>1. Chọn cấu hình đo <span id="tag" style="color:#4ecca3;text-transform:none"></span></h2>
+  <div class="row"><span>Vật:</span><select id="selR"></select></div>
+  <div class="row"><span>Lần đo:</span><select id="selT"><option value="0">Lần 1</option><option value="1">Lần 2</option><option value="2">Lần 3</option></select></div>
+  <div class="ins">Giá đỡ được gắn lên trục của lò xo xoắn (có cần chỉ thị mang cờ chắn sáng). Hai trụ đồng chất giống nhau về khối lượng và kích thước: <b>m = 0,35 kg, R = 9 cm</b>, một trụ đặc và một trụ rỗng, được đặt đồng trục lên giá đỡ. Moment xoắn của lò xo đã xác định ở mục 5.2: <b>D = 0,190 N·m</b> (có thể dùng giá trị bạn đo được).</div>
+
+  <h2>2. Thao tác đo</h2>
+  <div class="ins" id="guide"></div>
+  <details><summary>Nguyên lý thí nghiệm</summary>
+   Moment quán tính của hệ xác định từ chu kì: <b>I = D·T²/(4π²)</b> (19).<br>
+   Đo chu kì của giá đỡ (I<sub>giá</sub>) và của hệ giá đỡ + trụ (I<sub>hệ</sub>); moment quán tính của trụ: <b>I<sub>trụ</sub> = I<sub>hệ</sub> − I<sub>giá</sub></b>.<br>
+   Lý thuyết: trụ đặc <b>I = mR²/2</b>; trụ rỗng (thành mỏng) <b>I = mR²</b>.<br>
+   Bộ đếm cho thời gian từ lần quét thứ 1 đến lần thứ 5 của cờ qua cổng quang, ứng với 2 chu kì: <b>2T</b>.
+  </details>
+  <button id="bPlace">① Chỉ để giá đỡ (không đặt trụ)</button>
+  <div class="chip" id="chipR">—</div>
+  <button id="bSet">② Quay giá đỡ lệch khỏi vị trí cân bằng khoảng 90°</button>
+  <div>
+   <label for="speed">Tốc độ mô phỏng:</label>
+   <select id="speed"><option value="1">Thời gian thực (×1)</option><option value="2" selected>Nhanh ×2</option><option value="4">Rất nhanh ×4</option></select>
+  </div>
+  <button id="bRel">③ Thả tay cho hệ dao động</button>
+  <div class="row"><span>2T =</span><input id="inT2" type="number" step="0.001" placeholder="đọc ở lần quét thứ 5"><span>s</span></div>
+  <div class="row"><span>T̄ =</span><input id="inTb" type="number" step="0.001" placeholder="chỉ sau đủ 3 lần đo"><span>s</span></div>
+  <button id="bRec">④ Ghi kết quả vào Bảng 21</button>
+  <div id="msg"></div>
+
+  <h2>3. Bảng 21 — chu kì giá đỡ, trụ đặc, trụ rỗng</h2>
+  <table>
+   <thead><tr><th>Vật</th><th>2T₁ (s)</th><th>2T₂ (s)</th><th>2T₃ (s)</th><th>T̄ (s)</th></tr></thead>
+   <tbody id="tb21"></tbody>
+  </table>
+
+  <h2>4. Xử lý số liệu — Bảng 22</h2>
+  <div id="calc" class="lock">
+   <div class="ins">Moment quán tính của các trụ (thực nghiệm so với lý thuyết):</div>
+   <canvas id="chart"></canvas>
+   <div class="ins">Các giá trị moment quán tính tính bằng <b>10⁻³ kg·m²</b> (ví dụ 3,2 ứng với 0,0032 kg·m²). Dùng I = D·T̄²/(4π²) với D = 0,190 N·m.</div>
+   <div class="ins"><b>Giá đỡ:</b></div>
+   <div class="row"><span>I<sub>giá</sub> =</span><input id="cIg" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="ins"><b>Trụ đặc:</b></div>
+   <div class="row"><span>I<sub>hệ</sub> =</span><input id="cIh1" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>I<sub>trụ</sub> =</span><input id="cIt1" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>I<sub>lt</sub> =</span><input id="cIl1" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>δ =</span><input id="cD1" type="number" step="any"><span>%</span></div>
+   <div class="ins"><b>Trụ rỗng:</b></div>
+   <div class="row"><span>I<sub>hệ</sub> =</span><input id="cIh2" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>I<sub>trụ</sub> =</span><input id="cIt2" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>I<sub>lt</sub> =</span><input id="cIl2" type="number" step="any"><span>10⁻³ kg·m²</span></div>
+   <div class="row"><span>δ =</span><input id="cD2" type="number" step="any"><span>%</span></div>
+   <div class="ins">So sánh và nhận xét:</div>
+   <select id="cNote">
+    <option value="">-- chọn nhận xét --</option>
+    <option value="a">I của trụ rỗng nhỏ hơn I của trụ đặc vì khối lượng tập trung gần trục hơn</option>
+    <option value="b">I của trụ rỗng lớn hơn I của trụ đặc (cùng m, R) vì khối lượng phân bố xa trục hơn; các giá trị thực nghiệm gần với lý thuyết</option>
+    <option value="c">I của trụ đặc và trụ rỗng bằng nhau vì cùng khối lượng và cùng bán kính</option>
+   </select>
+   <details><summary>Gợi ý công thức</summary>
+    I<sub>giá</sub> = D·T̄²/(4π²) từ T̄ của giá đỡ; I<sub>hệ</sub> tính tương tự từ T̄ của hệ; I<sub>trụ</sub> = I<sub>hệ</sub> − I<sub>giá</sub>.<br>
+    I<sub>lt</sub> (trụ đặc) = mR²/2; I<sub>lt</sub> (trụ rỗng) = mR², với m = 0,35 kg, R = 0,09 m. δ = |I<sub>trụ</sub> − I<sub>lt</sub>| / I<sub>lt</sub> × 100%.
+   </details>
+   <button id="bCheck">Kiểm tra kết quả</button>
+   <button id="bShow" style="background:#0f3460;margin-top:6px">Xem đáp án</button>
+   <div id="final" style="display:none"></div>
+  </div>
+  <button id="bReset" style="background:#0f3460">Làm lại từ đầu</button>
+ </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+// ---------- SỐ LIỆU THÍ NGHIỆM - sửa tại đây nếu muốn đổi số liệu ----------
+const MC=0.35,RC=0.09;               // khối lượng (kg), bán kính (m) của mỗi trụ
+const D_TRUE=0.19;                   // moment xoắn của lò xo (N·m/rad), đã xác định ở mục 5.2
+const I_GIA=0.0032;                  // moment quán tính thực của giá đỡ (kg·m²)
+const I_SOLID=0.001446,I_HOLL=0.002892; // moment quán tính thực của trụ đặc, trụ rỗng (kg·m², hơn lý thuyết khoảng 2%)
+const GAM=0.0045;                    // hệ số tắt dần (1/s)
+const TH0=[90,89,91];                // góc lệch ban đầu ở ba lần đo (độ)
+const EPSD=[0.002,-0.0015,0.001];
+const HS=1/2000,NPASS=5,ROD=60;
+const NCOND=3;
+const condName=i=>['Giá đỡ','Giá đỡ + Trụ đặc','Giá đỡ + Trụ rỗng'][i];
+let S;
+
+// ---------- THREE.JS ----------
+const cc=$('cc'),scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,cc.clientWidth/cc.clientHeight,0.1,3000);
+const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const FULL={p:V3(20,78,160),t:V3(18,36,0)};
+camera.position.copy(FULL.p);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(cc.clientWidth,cc.clientHeight);cc.appendChild(renderer.domElement);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.copy(FULL.t);controls.enableDamping=true;controls.update();
+scene.add(new THREE.AmbientLight(0xffffff,.65));
+const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(60,160,150);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0x90e0ef,.4);dl2.position.set(-80,60,-80);scene.add(dl2);
+const M=(c,r,m)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const steel=M(0xc0c0c0,.3,.8),dark=M(0x33383d,.5,.5),iron=M(0x2b2f33,.6,.6),brass=M(0xc9a227,.35,.85),rodM=M(0xb8bec4,.3,.8),
+ skin=M(0xf0c8a0,.8,0),vaneM=M(0xe94560,.5,.1);
+const add=(m,x,y,z,p)=>{m.position.set(x,y,z);(p||scene).add(m);return m;};
+const box=(w,h,d,mat)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+const cyl=(r1,r2,h,mat,seg)=>new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||24),mat);
+add(box(220,2,160,M(0x2c3e50,.8,.1)),20,-1,0);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(900,700),new THREE.MeshStandardMaterial({color:0x151f2b}));
+floor.rotation.x=-Math.PI/2;floor.position.set(40,-120,0);scene.add(floor);
+
+function mkLabel(text,w,h,fg,bg){
+  const c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);
+  const tex=new THREE.CanvasTexture(c);
+  const paint=t=>{const x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);
+    if(bg){x.fillStyle=bg;x.fillRect(0,0,c.width,c.height);}
+    let fs=Math.round(c.height*.58);x.font='bold '+fs+'px Arial';
+    while(x.measureText(t).width>c.width-14&&fs>8){fs-=2;x.font='bold '+fs+'px Arial';}
+    x.fillStyle=fg;x.textAlign='center';x.textBaseline='middle';x.fillText(t,c.width/2,c.height/2+2);tex.needsUpdate=true;};
+  paint(text);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  s.scale.set(w,h,1);s.renderOrder=10;s.userData.set=paint;return s;
+}
+// tripod stand
+function tripod(x,z,h){
+  const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+  for(let k=0;k<3;k++){const f=box(22,2.4,3.6,iron);f.position.set(0,1.2,0);f.geometry.translate(8,0,0);f.rotation.y=k*2*Math.PI/3+.3;g.add(f);}
+  add(cyl(3.4,3.8,2.6,iron),0,1.3,0,g);
+  add(cyl(1.3,1.3,h,steel,16),0,h/2+1.2,0,g);
+  return g;}
+// bộ phận dao động xoắn: giá, trụ lò xo, thước đo góc
+tripod(0,0,34);
+add(cyl(5.2,5.2,5,brass),0,37.6,0);
+add(cyl(5.6,5.6,.8,dark),0,34.6,0);
+add(cyl(1.1,1.1,12,steel,16),0,44,0);
+// thước đo góc (khắc vạch mỗi 10°)
+(function(){const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');
+  x.fillStyle='#f4f1e4';x.beginPath();x.arc(256,256,250,0,7);x.fill();x.strokeStyle='#111';x.fillStyle='#111';x.font='bold 22px Arial';x.textAlign='center';x.textBaseline='middle';
+  for(let a=0;a<360;a+=5){const r=a*Math.PI/180,len=a%10===0?26:14;x.lineWidth=a%10===0?3:1.5;
+    x.beginPath();x.moveTo(256+250*Math.cos(r),256-250*Math.sin(r));x.lineTo(256+(250-len)*Math.cos(r),256-(250-len)*Math.sin(r));x.stroke();
+    if(a%30===0){const rr=250-52;let v=a>180?a-360:a;x.fillText(v+'°',256+rr*Math.cos(r),256-rr*Math.sin(r));}}
+  const m=new THREE.Mesh(new THREE.CircleGeometry(14,48),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)}));
+  m.rotation.x=-Math.PI/2;add(m,0,40.4,0);})();
+add(box(.25,.05,16,new THREE.MeshBasicMaterial({color:0x2d6cdf})),0,40.5,0);
+
+// thanh dao động + quả nặng + cờ chắn sáng (nhóm quay quanh trục thẳng đứng)
+const rodG=new THREE.Group();rodG.position.set(0,44,0);scene.add(rodG);
+const rod=cyl(.5,.5,ROD,rodM,16);rod.rotation.z=Math.PI/2;rodG.add(rod);
+add(box(5,3,3.6,brass),0,0,0,rodG);
+add(box(.8,5,.8,steel),28.5,-2.5,0,rodG);
+const vane=add(box(3,7,.3,vaneM),28.5,-6,0,rodG);
+function makeWeight(){const g=new THREE.Group();
+  const b=cyl(2.4,2.4,4,brass,28);b.rotation.z=Math.PI/2;g.add(b);
+  add(box(1,1.2,1.2,dark),0,2.9,0,g);
+  const hole=cyl(2.45,2.45,.4,dark,28);hole.rotation.z=Math.PI/2;hole.position.x=1.2;g.add(hole);
+  rodG.add(g);return g;}
+const wL=makeWeight(),wR=makeWeight();
+// giá đỡ trụ gắn trên trục + trụ đặc + trụ rỗng
+const gM=M(0x7d858c,.45,.6),hollowM=new THREE.MeshStandardMaterial({color:0x8a939b,roughness:.45,metalness:.6,side:THREE.DoubleSide});
+add(cyl(11,11,.8,gM,48),0,2.8,0,rodG);
+for(let k=0;k<4;k++){const a=Math.PI/4+k*Math.PI/2;add(box(.8,3,.8,steel),9.9*Math.cos(a),4.7,9.9*Math.sin(a),rodG);}
+const cylS=new THREE.Group();rodG.add(cylS);
+add(cyl(9,9,12,gM,56),0,0,0,cylS);add(box(18,.2,.5,dark),0,6.05,0,cylS);
+const cylH=new THREE.Group();rodG.add(cylH);
+add(new THREE.Mesh(new THREE.CylinderGeometry(9,9,12,56,1,true),hollowM),0,0,0,cylH);
+for(const yy of[-6,6]){const rim=new THREE.Mesh(new THREE.TorusGeometry(9,.35,8,56),dark);rim.rotation.x=Math.PI/2;add(rim,0,yy,0,cylH);}
+add(box(18,.2,.5,dark),0,6.05,0,cylH);
+cylS.visible=cylH.visible=false;
+const hand=box(3,3,5,skin);add(hand,29,0,2.5,rodG);
+
+// cổng quang chữ U (3) ở vị trí cân bằng của cờ + giá đỡ riêng
+tripod(29,-16,31);
+add(box(2.2,2.2,14,steel),29,32,-8);
+add(box(12,2,8,dark),28.5,33,0);
+add(box(2,7,5,dark),24,36.5,0);add(box(2,7,5,dark),33,36.5,0);
+add(box(2.4,2,2.4,M(0x111111,.6,.3)),28.5,33,4.6);
+const beamM=new THREE.MeshBasicMaterial({color:0xff3355});
+const beam=cyl(.14,.14,9,beamM,8);beam.rotation.z=Math.PI/2;add(beam,28.5,38,0);
+// bộ đếm thời gian hiện số (1) + cáp (2)
+const CT=V3(62,4.6,34);
+add(box(26,9,16,M(0x2d3a45,.5,.4)),CT.x,CT.y,CT.z);
+const ccv=document.createElement('canvas');ccv.width=520;ccv.height=190;
+const ctex=new THREE.CanvasTexture(ccv);
+add(new THREE.Mesh(new THREE.PlaneGeometry(22,7.5),new THREE.MeshBasicMaterial({map:ctex})),CT.x,CT.y+.4,CT.z+8.05);
+scene.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(28.5,33,5.8),V3(30,22,12),V3(45,5,26),V3(CT.x-8,6,CT.z+1)]),30,.35,6),new THREE.MeshBasicMaterial({color:0x111111})));
+
+// nhãn bộ phận
+const labs=new THREE.Group();scene.add(labs);
+const LAB=(t,x,y,z,w)=>{const l=mkLabel(t,w||34,6.5,'#00e5b0','rgba(0,0,0,.6)');l.position.set(x,y,z);labs.add(l);return l;};
+LAB('Cần chỉ thị mang cờ',-26,52,0,40);
+LAB('Giá đỡ + trụ (m = 0,35 kg, R = 9 cm)',-4,66,0,62);
+LAB('Lò xo xoắn (trong trụ)',-14,30,6,40);
+LAB('Thước đo góc',-12,44,12,28);
+LAB('(3) Cảm biến quang chữ U',29,47,0,44);
+LAB('Cờ chắn sáng',44,32,0,28);
+LAB('(2) Cáp nối',40,12,26,24);
+LAB('(1) Bộ đếm thời gian hiện số',CT.x,16,CT.z,48);
+$('lab').onchange=()=>{labs.visible=$('lab').checked;};
+
+// ---------- ÂM THANH ----------
+let ac=null;
+function beep(f){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+  const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f||1800;g.gain.value=.08;o.connect(g);g.connect(ac.destination);
+  o.start();g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+.1);o.stop(ac.currentTime+.11);}catch(e){}}
+
+// ---------- CAMERA ----------
+let camGoal=null,viewIdx=0;
+const VN=['Toàn cảnh','Giá đỡ & trụ','Cổng quang','Bộ đếm'];
+function viewGoal(i){
+  if(i===1)return{p:V3(0,80,72),t:V3(0,50,0)};
+  if(i===2)return{p:V3(42,52,50),t:V3(28.5,38,0)};
+  if(i===3)return{p:V3(CT.x,26,CT.z+46),t:V3(CT.x,6,CT.z)};
+  return FULL;}
+$('bView').onclick=()=>{viewIdx=(viewIdx+1)%4;camGoal=viewGoal(viewIdx);$('bView').textContent='🔍 Xem '+VN[(viewIdx+1)%4].toLowerCase();};
+
+// ---------- BỘ ĐẾM ----------
+function counterText(){
+  const p=S.passes,n=p.length;
+  return{n,t:n>=1?p[n-1]-p[0]:0};}
+function drawCounter3D(){
+  const x=ccv.getContext('2d'),W=ccv.width,H=ccv.height,c=counterText();
+  x.fillStyle='#071a10';x.fillRect(0,0,W,H);
+  x.fillStyle='#39ff88';x.font='bold 30px monospace';x.textAlign='left';x.fillText('LẦN QUÉT: '+c.n,20,50);
+  x.font='bold 64px monospace';x.fillText(c.t.toFixed(3)+' s',20,135);
+  ctex.needsUpdate=true;}
+const zc=$('zoom'),cx=zc.getContext('2d');
+function drawCassy(){
+  const W=zc.width=zc.clientWidth,H=zc.height=zc.clientHeight;
+  cx.fillStyle='#0d1b2a';cx.fillRect(0,0,W,H);
+  const lw=Math.round(W*.4);cx.fillStyle='#071a10';cx.fillRect(0,0,lw,H);
+  cx.textAlign='left';cx.fillStyle='#8ecae6';cx.font='bold 12px Arial';cx.fillText('Bộ đếm thời gian — dao động xoắn',8,16);
+  const p=S.passes,c=counterText();
+  cx.fillStyle='#39ff88';cx.font='bold 15px monospace';cx.fillText('Số lần quét: '+c.n,8,42);
+  cx.font='bold 22px monospace';cx.fillText('t = '+c.t.toFixed(3)+' s',8,72);
+  cx.font='12px monospace';cx.fillStyle='#8fd8a8';
+  for(let k=1;k<p.length&&k<=NPASS-1;k++)cx.fillText(`lần ${k+1}: ${(p[k]-p[0]).toFixed(3)} s`,8,92+(k-1)*15);
+  cx.font='11px Arial';cx.fillStyle='#8aa';cx.fillText('2T = thời gian từ lần quét 1 đến lần quét 5',8,H-8);
+  const gx0=lw+38,gy0=H/2+4,gw=W-gx0-12,gh=(H-44)/2,tm=10;
+  const px=t=>gx0+t/tm*gw,py=a=>gy0-a/100*gh;
+  cx.strokeStyle='#27425f';cx.lineWidth=1;cx.fillStyle='#8aa';cx.font='10px Arial';cx.textAlign='right';
+  for(let a=-100;a<=100;a+=50){const y=py(a);cx.beginPath();cx.moveTo(gx0,y);cx.lineTo(gx0+gw,y);cx.stroke();cx.fillText(a,gx0-4,y+3);}
+  cx.textAlign='center';
+  for(let t=0;t<=tm;t+=2){const x=px(t);cx.beginPath();cx.moveTo(x,gy0-gh);cx.lineTo(x,gy0+gh);cx.stroke();cx.fillText(t,x,gy0+gh+12);}
+  cx.fillStyle='#8ecae6';cx.textAlign='left';cx.fillText('θ (độ)',gx0-34,12);cx.textAlign='right';cx.fillText('t (s)',gx0+gw,H-2);
+  cx.fillStyle='#00e5ff';
+  for(const[t,a]of S.trace){cx.beginPath();cx.arc(px(t),py(a),1.6,0,7);cx.fill();}
+  cx.fillStyle='#fff';
+  for(const t of p){cx.beginPath();cx.arc(px(t),py(0),4,0,7);cx.fill();}
+}
+
+// ---------- ĐỒ THỊ SO SÁNH I ----------
+function drawChart(){
+  const c=$('chart'),W=c.width=c.clientWidth,H=c.height=c.clientHeight,x=c.getContext('2d');
+  x.fillStyle='#1a1a2e';x.fillRect(0,0,W,H);
+  const L=46,B=28,T=16,R=14,pw=W-L-R,ph=H-B-T,ym=4;
+  const py=v=>T+ph-v/ym*ph;
+  x.strokeStyle='#27425f';x.fillStyle='#8aa';x.font='10px Arial';x.lineWidth=1;x.textAlign='right';
+  for(let v=0;v<=ym;v+=1){x.beginPath();x.moveTo(L,py(v));x.lineTo(L+pw,py(v));x.stroke();x.fillText(v,L-4,py(v)+3);}
+  x.fillStyle='#8ecae6';x.textAlign='left';x.fillText('I (10⁻³ kg·m²)',2,11);
+  const e=rowsOK()?expected():null;
+  const groups=[['Trụ đặc',e?e.It1:null,MC*RC*RC/2*1000],['Trụ rỗng',e?e.It2:null,MC*RC*RC*1000]];
+  const bw=Math.min(40,pw/8);
+  groups.forEach(([nm,ex,lt],i)=>{const m=L+pw*(i+.5)/2;x.fillStyle='#8aa';x.textAlign='center';x.fillText(nm,m,H-10);
+    const dr=(v,xx,col)=>{if(v===null)return;x.fillStyle=col;x.fillRect(xx,py(v),bw,py(0)-py(v));x.fillStyle='#fff';x.fillText(v.toFixed(2),xx+bw/2,py(v)-4);};
+    dr(ex,m-bw-2,'#00e5ff');dr(lt,m+2,'#ffb142');});
+  x.font='10px Arial';x.textAlign='left';x.fillStyle='#00e5ff';x.fillRect(W-150,3,9,9);x.fillStyle='#ccc';x.fillText('thực nghiệm',W-138,11);
+  x.fillStyle='#ffb142';x.fillRect(W-70,3,9,9);x.fillStyle='#ccc';x.fillText('lý thuyết',W-58,11);
+}
+
+// ---------- LOGIC ----------
+const msg=(t,c)=>{$('msg').textContent=t;$('msg').className=c||'';};
+const f3=v=>v===null?'---':v.toFixed(3);
+const rowFull=c=>S.rd.t2[c].every(v=>v!==null);
+const rowDone=c=>rowFull(c)&&S.rd.tb[c]!==null;
+const rowsOK=()=>[0,1,2].every(rowDone);
+const goalPlace=()=>S.si===0?25:0;
+const moving=()=>Math.abs(S.rCur-S.rGoal)>.01;
+const placedOK=()=>S.placed===S.si&&!moving();
+function fillSel(){const s=$('selR'),cur=S.si;s.innerHTML='';
+  for(let i=0;i<NCOND;i++){const o=document.createElement('option');o.value=i;o.textContent=condName(i)+(rowDone(i)?'  ✔':'');s.appendChild(o);}
+  s.value=cur;}
+function ui(){
+  const st=S.stage,done=S.rd.tb.filter(v=>v!==null).length;
+  $('tag').textContent=`— ${done}/${NCOND} vật đã đủ 3 lần`;
+  const needTb=rowFull(S.si)&&S.rd.tb[S.si]===null;
+  $('bPlace').textContent=['① Chỉ để giá đỡ (không đặt trụ)','① Đặt trụ đặc đồng trục lên giá đỡ','① Đặt trụ rỗng đồng trục lên giá đỡ'][S.si];
+  $('bPlace').disabled=st==='running'||placedOK();
+  $('chipR').textContent=placedOK()?['✔ Chỉ có giá đỡ trên trục','✔ Trụ đặc đã đặt lên giá đỡ','✔ Trụ rỗng đã đặt lên giá đỡ'][S.si]:(moving()?'… đang đặt/tháo trụ':'Chưa lắp đúng vật cần đo');
+  $('chipR').className='chip'+(placedOK()?' on':'');
+  $('bSet').disabled=!(placedOK()&&(st==='placed'||st==='recorded'||st==='setup'));
+  $('bRel').disabled=st!=='set';
+  $('inT2').disabled=st!=='done';
+  $('inTb').disabled=!(st==='done'||needTb);
+  $('bRec').disabled=!(st==='done'||needTb);
+  $('selR').disabled=$('selT').disabled=st==='running'||S.setting;
+  let g;
+  if(st==='running')g='Hệ đang dao động. Bộ đếm tính thời gian từ lần cờ quét qua cổng quang thứ 1; đợi đến lần quét thứ 5...';
+  else if(st==='done')g='Đã đến lần quét thứ 5. Đọc 2T trên bộ đếm (thời gian từ lần quét thứ 1 đến lần thứ 5) và nhập vào ô 2T rồi bấm ④. Khi đủ 3 lần đo của một vật, tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 và nhập vào ô T̄.';
+  else if(st==='set')g='Hệ đang được giữ lệch khoảng 90°. Bấm ③ để thả tay.';
+  else if(needTb)g='Đã đủ 3 lần đo của vật này. Tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 và nhập vào ô T̄ rồi bấm ④.';
+  else if(st==='recorded')g=rowsOK()?'Đã đủ số liệu ở Bảng 21. Hãy xử lý số liệu ở mục 4.':'Đã ghi. Chọn lần đo tiếp theo hoặc vật khác ở mục 1.';
+  else g=`${condName(S.si)}, lần ${S.tri+1}: ① lắp đúng vật cần đo lên trục; ② quay hệ lệch khoảng 90° so với vị trí cân bằng; ③ thả tay và quan sát bộ đếm.`;
+  $('guide').textContent=g;
+  const tb=$('tb21');tb.innerHTML='';
+  for(let i=0;i<NCOND;i++){const tr=document.createElement('tr');if(i===S.si)tr.className='cur';
+    tr.innerHTML=`<td>${condName(i)}</td>${S.rd.t2[i].map(v=>`<td>${f3(v)}</td>`).join('')}<td>${f3(S.rd.tb[i])}</td>`;tb.appendChild(tr);}
+  $('calc').classList.toggle('lock',!rowsOK());
+  drawCounter3D();drawCassy();drawChart();
+}
+function resetRun(){S.th=0;S.w=0;S.simT=0;S.acc=0;S.passes=[];S.trace=[];S.trc=0;S.flash=-1;S.disp=null;}
+function clearRec(){['inT2','inTb'].forEach(i=>{$(i).value='';$(i).classList.remove('ok','bad');});}
+function onSel(){S.si=parseInt($('selR').value);S.tri=parseInt($('selT').value);resetRun();S.stage=placedOK()?'placed':'setup';clearRec();msg('');ui();}
+$('selR').onchange=onSel;$('selT').onchange=onSel;
+$('speed').onchange=()=>{S.speed=parseFloat($('speed').value);};
+$('bPlace').onclick=()=>{
+  if(S.si===0){S.rGoal=25;}
+  else{S.shown=S.si;S.rCur=25;S.rGoal=0;}
+  S.placed=S.si;msg('');S.stage='setup';resetRun();if(!moving())S.stage='placed';ui();};
+$('bSet').onclick=()=>{S.stage='setup';resetRun();S.setting=true;S.setTarget=TH0[S.tri]*Math.PI/180;msg('');ui();};
+$('bRel').onclick=()=>{S.th=S.setTarget;S.w=0;S.simT=0;S.acc=0;S.passes=[];S.trace=[];S.trc=0;S.stage='running';msg('');ui();};
+function Ieff(){return I_GIA+(S.si===1?I_SOLID:(S.si===2?I_HOLL:0));}
+function step(h){
+  const w2=D_TRUE*(1+EPSD[(S.si+S.tri)%3])/Ieff(),prev=S.th;
+  S.w+=(-w2*S.th-GAM*S.w)*h;S.th+=S.w*h;S.simT+=h;
+  if((prev>0&&S.th<=0)||(prev<0&&S.th>=0)){
+    const t=S.simT-h+h*prev/(prev-S.th);S.passes.push(t);S.flash=S.simT;beep(1800);drawCounter3D();
+    if(S.passes.length>=NPASS)finishRun();}
+  if(++S.trc%40===0)S.trace.push([S.simT,S.th*180/Math.PI]);}
+function finishRun(){
+  const p=S.passes,jit=0.003*Math.sin(S.si*7+S.tri*3+1);
+  S.disp=Math.round((p[NPASS-1]-p[0]+jit)*1000)/1000;
+  S.stage='done';
+  msg(`Lần quét thứ 5: bộ đếm hiển thị 2T = ${S.disp.toFixed(3)} s.`,'good');ui();}
+$('bRec').onclick=()=>{
+  const c=S.si,t=S.tri,r=S.rd.t2[c];
+  if(S.stage==='done'){
+    const v=parseFloat($('inT2').value);
+    if(isNaN(v)){msg('Hãy nhập 2T (s) đọc trên bộ đếm.','warn');return;}
+    if(Math.abs(v-S.disp)>0.0015){msg('Giá trị 2T chưa khớp với bộ đếm. 2T là thời gian từ lần quét thứ 1 đến lần quét thứ 5.','warn');return;}
+    r[t]=v;S.rd.tb[c]=null;S.stage='recorded';$('inT2').value='';
+  }
+  if(rowFull(c)){
+    const tb=parseFloat($('inTb').value);
+    if(isNaN(tb)){msg('Đã ghi 2T. Vật này đủ 3 lần đo: tính T̄ = (2T₁ + 2T₂ + 2T₃)/6 rồi nhập vào ô T̄.','warn');fillSel();ui();return;}
+    const e=r.reduce((p,q)=>p+q,0)/6;
+    if(Math.abs(tb-e)>0.002){msg('T̄ chưa đúng. T̄ là trung bình chu kì: T̄ = (2T₁ + 2T₂ + 2T₃)/(3·2).','warn');ui();return;}
+    S.rd.tb[c]=tb;$('inTb').value='';msg(`✔ Đã ghi T̄ = ${tb.toFixed(3)} s cho ${condName(c)}`,'good');
+  }else msg(`✔ Đã ghi 2T lần ${t+1} của ${condName(c)}`,'good');
+  fillSel();ui();};
+
+// ---------- XỬ LÝ SỐ LIỆU (đơn vị 10⁻³ kg·m²) ----------
+const Ifr=T=>D_TRUE*T*T/(4*Math.PI**2)*1000;
+function expected(){
+  const tb=S.rd.tb,Ig=Ifr(tb[0]),Ih1=Ifr(tb[1]),Ih2=Ifr(tb[2]);
+  const It1=Ih1-Ig,It2=Ih2-Ig,Il1=MC*RC*RC/2*1000,Il2=MC*RC*RC*1000;
+  return{Ig,Ih1,Ih2,It1,It2,Il1,Il2,D1:Math.abs(It1-Il1)/Il1*100,D2:Math.abs(It2-Il2)/Il2*100};}
+function check(){
+  if(!rowsOK())return;
+  const e=expected();let all=true;
+  const mark=(id,ok)=>{$(id).classList.toggle('ok',ok);$(id).classList.toggle('bad',!ok);if(!ok)all=false;};
+  const v=id=>parseFloat($(id).value),rel=(a,b,t)=>Math.abs(a-b)/b<=t;
+  mark('cIg',rel(v('cIg'),e.Ig,0.015));
+  mark('cIh1',rel(v('cIh1'),e.Ih1,0.015));mark('cIt1',rel(v('cIt1'),e.It1,0.03));mark('cIl1',rel(v('cIl1'),e.Il1,0.01));mark('cD1',Math.abs(v('cD1')-e.D1)<=1.5);
+  mark('cIh2',rel(v('cIh2'),e.Ih2,0.015));mark('cIt2',rel(v('cIt2'),e.It2,0.03));mark('cIl2',rel(v('cIl2'),e.Il2,0.01));mark('cD2',Math.abs(v('cD2')-e.D2)<=1.5);
+  mark('cNote',$('cNote').value==='b');
+  const f=$('final');f.style.display='block';
+  if(all)f.innerHTML=`I<sub>giá</sub> = ${e.Ig.toFixed(2)}·10⁻³ kg·m²<br>Trụ đặc: I<sub>hệ</sub> = ${e.Ih1.toFixed(2)}, I<sub>trụ</sub> = ${e.It1.toFixed(2)}, I<sub>lt</sub> = mR²/2 = ${e.Il1.toFixed(2)} (δ = ${e.D1.toFixed(1)} %)<br>Trụ rỗng: I<sub>hệ</sub> = ${e.Ih2.toFixed(2)}, I<sub>trụ</sub> = ${e.It2.toFixed(2)}, I<sub>lt</sub> = mR² = ${e.Il2.toFixed(2)} (δ = ${e.D2.toFixed(1)} %)<br>Kết luận: cùng khối lượng và bán kính, trụ rỗng có moment quán tính gấp đôi trụ đặc; kết quả thực nghiệm phù hợp lý thuyết trong phạm vi sai số.`;
+  else f.textContent='Còn ô chưa đúng (viền đỏ). Tính lại nhé!';}
+$('bCheck').onclick=check;
+$('bShow').onclick=()=>{if(!rowsOK())return;const e=expected();
+  const set=(id,x,d)=>{$(id).value=x.toFixed(d||3);};
+  set('cIg',e.Ig);set('cIh1',e.Ih1);set('cIt1',e.It1);set('cIl1',e.Il1);set('cD1',e.D1,1);
+  set('cIh2',e.Ih2);set('cIt2',e.It2);set('cIl2',e.Il2);set('cD2',e.D2,1);$('cNote').value='b';check();};
+$('bReset').onclick=reset;
+function reset(){
+  const mk=()=>Array.from({length:NCOND},()=>[null,null,null]);
+  S={si:0,tri:0,stage:'setup',placed:-1,shown:0,rCur:25,rGoal:25,setting:false,setTarget:0,th:0,w:0,simT:0,acc:0,trc:0,passes:[],trace:[],flash:-1,disp:null,
+     speed:parseFloat($('speed').value),rd:{t2:mk(),tb:Array(NCOND).fill(null)}};
+  fillSel();$('selR').value='0';$('selT').value='0';clearRec();
+  ['cIg','cIh1','cIt1','cIl1','cD1','cIh2','cIt2','cIl2','cD2','cNote'].forEach(i=>{$(i).value='';$(i).classList.remove('ok','bad');});$('final').style.display='none';
+  resetRun();msg('');ui();}
+
+// ---------- CẬP NHẬT CẢNH ----------
+function updateScene(dt){
+  if(moving()){const d=S.rGoal-S.rCur;S.rCur+=Math.sign(d)*Math.min(Math.abs(d),dt*30);
+    if(!moving()){S.rCur=S.rGoal;if(S.si===0)S.shown=0;if(S.stage==='setup'&&placedOK())S.stage='placed';ui();}}
+  cylS.visible=S.shown===1;cylH.visible=S.shown===2;
+  cylS.position.y=cylH.position.y=9.2+S.rCur;
+  wL.visible=wR.visible=false;
+  if(S.setting){const d=S.setTarget-S.th;S.th+=Math.sign(d)*Math.min(Math.abs(d),dt*1.6);
+    if(Math.abs(S.setTarget-S.th)<1e-4){S.th=S.setTarget;S.setting=false;S.stage='set';ui();}}
+  rodG.rotation.y=S.th;
+  hand.visible=S.stage==='set'||S.setting;
+  const zv=-28.5*Math.sin(S.th);
+  beamM.color.setHex((Math.abs(zv)<.8||(S.flash>=0&&S.simT-S.flash<.12&&S.stage==='running'))?0x2ecc71:0xff3355);
+}
+
+// ---------- ANIMATION ----------
+reset();
+let last=performance.now();
+(function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;
+  if(S.stage==='running'){S.acc+=dt*S.speed;while(S.acc>=HS&&S.stage==='running'){S.acc-=HS;step(HS);}drawCassy();}
+  updateScene(dt);
+  if(camGoal){camera.position.lerp(camGoal.p,.08);controls.target.lerp(camGoal.t,.08);
+    if(camera.position.distanceTo(camGoal.p)<.3)camGoal=null;}
+  controls.update();renderer.render(scene,camera);
+})();
+window.addEventListener('resize',()=>{
+  camera.aspect=cc.clientWidth/cc.clientHeight;camera.updateProjectionMatrix();
+  renderer.setSize(cc.clientWidth,cc.clientHeight);drawCassy();drawChart();});
+</script>
+</body>
+</html>
